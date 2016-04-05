@@ -26,13 +26,12 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-client</artifactId>
       <version>${hadoop.version}</version>
-      <scope>provided</scope>
     </dependency>
     <!-- Parquet -->
     <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-hadoop</artifactId>
-      <version>${parquet.version}</version>
+	<groupId>org.apache.parquet</groupId>
+	<artifactId>parquet-avro</artifactId>
+	<version>${parquet.version}</version>
     </dependency>
     <!-- Unit testing -->
     <dependency>
@@ -74,7 +73,7 @@
 	      <transformers>
 		<!-- add Main-Class to manifest file -->
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-		  <mainClass>se.phaseshift.hadoop.climate.stations.App</mainClass>
+		  <mainClass>se.phaseshift.hadoop.climate.stations.JsonlStationsETL</mainClass>
 		</transformer>
 	      </transformers>
 	    </configuration>
