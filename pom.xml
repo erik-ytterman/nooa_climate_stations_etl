@@ -29,9 +29,9 @@
     </dependency>
     <!-- Parquet -->
     <dependency>
-	<groupId>org.apache.parquet</groupId>
-	<artifactId>parquet-avro</artifactId>
-	<version>${parquet.version}</version>
+      <groupId>org.apache.parquet</groupId>
+      <artifactId>parquet-avro</artifactId>
+      <version>${parquet.version}</version>
     </dependency>
     <!-- Unit testing -->
     <dependency>
