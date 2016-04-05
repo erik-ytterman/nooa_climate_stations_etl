@@ -55,11 +55,14 @@ public class JsonlStationsETL extends Configured implements Tool {
 	Path outputPath = new Path(args[1]);				  
 	Path schemaPath = new Path(args[2]);
 
-	// Create configuration
+	// Create configuration and filesystem objects
         Configuration conf = this.getConf();
+        FileSystem fs = FileSystem.get(conf);
+
+	// Clean output area, othetwise job will terminate
+	fs.delete(outputPath, true);
 
 	// Read the Avro schema
-        FileSystem fs = FileSystem.get(conf);
         String schemaString = inputStreamToString(fs.open(schemaPath));
 
 	// Add schema string to configuration for the mappers if the job
