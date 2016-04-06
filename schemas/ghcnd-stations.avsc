@@ -1,0 +1,12 @@
+{
+   "type" : "record",
+   "namespace" : "climate",
+   "name" : "station",
+   "fields" : [
+      { "name" : "id"        , "type" : "string" , "default" : "NULL" },
+      { "name" : "latitude"  , "type" : "float" },
+      { "name" : "longitude" , "type" : "float" },
+      { "name" : "elevation" , "type" : "float" },
+      { "name" : "name"      , "type" : "string" }
+   ]
+}
