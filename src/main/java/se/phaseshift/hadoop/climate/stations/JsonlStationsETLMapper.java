@@ -42,9 +42,6 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	FileSplit fileSplit = (FileSplit) context.getInputSplit();
 	String fileName = fileSplit.getPath().getName();
 	
-	// Enrich
-	// record.put(5, fileName);
-
 	// Dispatch data
 	context.write(null, record);
     }
