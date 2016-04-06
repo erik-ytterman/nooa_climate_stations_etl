@@ -5,9 +5,7 @@ import java.lang.InterruptedException;
 import java.io.IOException;
 import java.io.StringReader;
 
-import javax.json.Json;
-import javax.json.JsonReader;
-import javax.json.JsonObject;
+import org.json.JSONObject;
 
 import org.apache.hadoop.mapreduce.Mapper;
 
@@ -40,14 +38,13 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     @Override
     public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 	FileSplit fileSplit   = (FileSplit) context.getInputSplit();
-	JsonReader jsonReader = Json.createReader(new StringReader(value.toString()));
-	JsonObject jsonObject = jsonReader.readObject();
+	JSONObject jsonObject = new JSONObject(value.toString());
 
 	// Extract data from JSON line instance
 	String stationId        = jsonObject.getString("id");
-	Float  stationLatitude  = new Float(jsonObject.getJsonNumber("latitude").doubleValue());
-	Float  stationLongitude = new Float(jsonObject.getJsonNumber("longitude").doubleValue());
-	Float  stationElevation = new Float(jsonObject.getJsonNumber("elevation").doubleValue());
+	Float  stationLatitude  = new Float(jsonObject.getDouble("latitude"));
+	Float  stationLongitude = new Float(jsonObject.getDouble("longitude"));
+	Float  stationElevation = new Float(jsonObject.getDouble("elevation"));
 	String stationName      = jsonObject.getString("name");
 	String fileName         = fileSplit.getPath().getName();
 
