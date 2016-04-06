@@ -39,7 +39,7 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 
     @Override
     public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-	FileSplit fileSplit = (FileSplit) context.getInputSplit();
+	FileSplit fileSplit   = (FileSplit) context.getInputSplit();
 	JsonReader jsonReader = Json.createReader(new StringReader(value.toString()));
 	JsonObject jsonObject = jsonReader.readObject();
 
