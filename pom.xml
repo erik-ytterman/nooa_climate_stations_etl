@@ -28,6 +28,12 @@
       <version>${hadoop.version}</version>
       <scope>provided</scope>
     </dependency>
+    <!-- JSON processing (should be part of Java 7, JSR 353) -->
+    <dependency>
+      <groupId>org.glassfish</groupId>
+      <artifactId>javax.json</artifactId>
+      <version>1.0.4</version>
+    </dependency>
     <!-- Parquet -->
     <dependency>
       <groupId>org.apache.parquet</groupId>
