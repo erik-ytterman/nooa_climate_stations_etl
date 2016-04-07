@@ -11,11 +11,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 // JSON Schema validator
-import com.github.fge.jsonschema.core.exceptions.ProcessingException;
-import com.github.fge.jsonschema.core.report.ProcessingMessage;
-import com.github.fge.jsonschema.core.report.ProcessingReport;
+import com.github.fge.jsonschema.exceptions.ProcessingException;
 import com.github.fge.jsonschema.main.JsonSchema;
 import com.github.fge.jsonschema.main.JsonSchemaFactory;
+import com.github.fge.jsonschema.report.ProcessingReport;
 
 // MapReduce & Hadoop
 import org.apache.hadoop.mapreduce.Mapper;
@@ -32,14 +31,17 @@ import org.apache.avro.generic.GenericRecord;
 // Parquet
 import org.apache.parquet.Log;
 
+// Logging
+import org.apache.log4j.Logger;
+
 public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, GenericRecord> {
     private GenericRecordBuilder recordBuilder = null;
     private ObjectMapper objectMapper = null;
     private JsonSchema inputSchema = null;
 
     @Override
-	public void setup(Context context) {
-	// Get gonfiguration
+    public void setup(Context context) {
+	// Get configuration
 	Configuration conf = context.getConfiguration();
 	
 	// Create an Jackson Object mapper needed for JSON parsing
@@ -60,31 +62,43 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     }
 
     @Override
-    public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-	// Extract data from JSON line instance 
-	JsonNode jsonNode = this.objectMapper.readTree(value.toString());
-	String stationId        = jsonNode.get("id").asText();
-	Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
-	Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
-	Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
-	String stationName      = jsonNode.get("name").asText();
+	public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+	try {
+	    // Parse JSON line data into JsonNode
+	    JsonNode jsonNode = this.objectMapper.readTree(value.toString());
+	    
+	    // Validate against schema
+	    ProcessingReport validationReport = this.inputSchema.validate(jsonNode);
+	    if (!validationReport.isSuccess()) {
+	    }
 
-	// Extract MapReduce meta-data potentially used in KPI calculation
-	FileSplit fileSplit   = (FileSplit) context.getInputSplit();	
-	String fileName         = fileSplit.getPath().getName();
+	    // Extract data from JSON line instance 	
+	    String stationId        = jsonNode.get("id").asText();
+	    Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
+	    Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
+	    Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
+	    String stationName      = jsonNode.get("name").asText();
 
-	// Configre generic AVRO record output data
-	this.recordBuilder.set("id", stationId);
-	this.recordBuilder.set("latitude" , stationLatitude);
-	this.recordBuilder.set("longitude", stationLongitude);
-	this.recordBuilder.set("elevation", stationElevation);
-	this.recordBuilder.set("name", stationName);
-
-	// Generate AVRO record
-	GenericRecord record = this.recordBuilder.build();
-
-	// Dispatch data
-	context.write(null, record);
+	    // Extract MapReduce meta-data potentially used in KPI calculation
+	    FileSplit fileSplit   = (FileSplit) context.getInputSplit();	
+	    String fileName         = fileSplit.getPath().getName();
+	    
+	    // Configre generic AVRO record output data
+	    this.recordBuilder.set("id", stationId);
+	    this.recordBuilder.set("latitude" , stationLatitude);
+	    this.recordBuilder.set("longitude", stationLongitude);
+	    this.recordBuilder.set("elevation", stationElevation);
+	    this.recordBuilder.set("name", stationName);
+	    
+	    // Generate AVRO record
+	    GenericRecord record = this.recordBuilder.build();
+	    
+	    // Dispatch data
+	    context.write(null, record);
+	}
+	catch(Exception e) {
+	    System.err.println(e.toString());
+	}
     }
 
     @Override

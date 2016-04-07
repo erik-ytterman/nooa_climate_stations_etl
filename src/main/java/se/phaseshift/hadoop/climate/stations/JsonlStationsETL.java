@@ -39,11 +39,11 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 public class JsonlStationsETL extends Configured implements Tool {
 
     public static void main(String[] args)  throws Exception {
-	if(args.length >= 3) {
+	if(args.length >= 4) {
 	    int res = ToolRunner.run(new Configuration(), new JsonlStationsETL(), args);
 	    System.exit(res);
 	} else {
-	    System.out.println("ERROR");
+	    System.err.println("ERROR");
 	    System.exit(0);
 	}
     }
