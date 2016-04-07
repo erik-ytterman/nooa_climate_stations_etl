@@ -1,0 +1,12 @@
+{
+   "title": "NOAA GHCND Station description",
+   "type": "object",
+   "properties": {
+      "id"        : { "type": "string" },
+      "latitude"  : { "type": "number" },
+      "longitude" : { "type": "number" },
+      "elevation" : { "type": "number" },
+      "name"      : { "type": "string" }
+   },
+   "required": ["id", "latitude", "longitude", "elevation", "name"]
+}
