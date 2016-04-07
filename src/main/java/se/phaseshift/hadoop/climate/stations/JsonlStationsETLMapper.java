@@ -11,6 +11,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 // JSON Schema validator
+import com.github.fge.jsonschema.core.exceptions.ProcessingException;
+import com.github.fge.jsonschema.core.report.ProcessingMessage;
+import com.github.fge.jsonschema.core.report.ProcessingReport;
+import com.github.fge.jsonschema.main.JsonSchema;
+import com.github.fge.jsonschema.main.JsonSchemaFactory;
 
 // MapReduce & Hadoop
 import org.apache.hadoop.mapreduce.Mapper;
@@ -36,7 +41,6 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	// Get gonfiguration
 	Configuration conf = context.getConfiguration();
 	
-	// Create an object maper used for Jackson JSON parsing
 	this.objectMapper = new ObjectMapper();
 
 	// Create a JSON input schema used as input validator
@@ -49,15 +53,16 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 
     @Override
     public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-	FileSplit fileSplit   = (FileSplit) context.getInputSplit();
-
-	// Extract data from JSON line instance	
+	// Extract data from JSON line instance 
 	JsonNode jsonNode = this.objectMapper.readTree(value.toString());
 	String stationId        = jsonNode.get("id").asText();
 	Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
 	Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
 	Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
 	String stationName      = jsonNode.get("name").asText();
+
+	// Extract MapReduce meta-data potentially used in KPI calculation
+	FileSplit fileSplit   = (FileSplit) context.getInputSplit();	
 	String fileName         = fileSplit.getPath().getName();
 
 	// Configre generic AVRO record output data
