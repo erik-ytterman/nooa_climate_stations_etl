@@ -53,7 +53,8 @@ public class JsonlStationsETL extends Configured implements Tool {
 	// Get paths
  	Path inputPath = new Path(args[0]);
 	Path outputPath = new Path(args[1]);				  
-	Path schemaPath = new Path(args[2]);
+	Path outputSchemaPath = new Path(args[2]);
+	Path inputSchemaPath = new Path(args[3]);
 
 	// Create configuration and filesystem objects
         Configuration conf = this.getConf();
@@ -62,11 +63,17 @@ public class JsonlStationsETL extends Configured implements Tool {
 	// Clean output area, othetwise job will terminate
 	fs.delete(outputPath, true);
 
-	// Read the Avro schema
-        String schemaString = inputStreamToString(fs.open(schemaPath));
+	// Read the output (AVRO) schema
+        String outputSchemaString = inputStreamToString(fs.open(outputSchemaPath));
 
-	// Add schema string to configuration for the mappers if the job
-	conf.set("climate.stations.schema", schemaString);
+	// Add output schema string to configuration for the mappers of the job
+	conf.set("climate.stations.output.schema", outputSchemaString);
+
+	// Read the input (JSON) schema
+	String inputSchemaString = inputStreamToString(fs.open(inputSchemaPath));
+
+	// Add input schema string to configuration for the mappers of the job
+	conf.set("climate.stations.input.schema", inputSchemaString);
 
 	// Create job
 	Job job = Job.getInstance(conf);
@@ -79,10 +86,10 @@ public class JsonlStationsETL extends Configured implements Tool {
 	job.setMapperClass(JsonlStationsETLMapper.class);
 	job.setPartitionerClass(HashPartitioner.class);
 
-	Schema stationSchema = new Schema.Parser().parse(schemaString);
+	Schema outputSchema = new Schema.Parser().parse(outputSchemaString);
 
         AvroParquetOutputFormat.setOutputPath(job, outputPath);
-        AvroParquetOutputFormat.setSchema(job, stationSchema);
+        AvroParquetOutputFormat.setSchema(job, outputSchema);
         AvroParquetOutputFormat.setCompression(job, CompressionCodecName.SNAPPY);
         AvroParquetOutputFormat.setCompressOutput(job, true);
         AvroParquetOutputFormat.setBlockSize(job, 500 * 1024 * 1024);	

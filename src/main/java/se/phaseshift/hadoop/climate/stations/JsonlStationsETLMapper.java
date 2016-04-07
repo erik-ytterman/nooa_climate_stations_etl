@@ -5,34 +5,45 @@ import java.lang.InterruptedException;
 import java.io.IOException;
 import java.io.StringReader;
 
+// JSON parser
 import org.json.JSONObject;
 
-import org.apache.hadoop.mapreduce.Mapper;
+// JSON Schema validator
+// import org.everit.json.schema.Schema;
+import org.everit.json.schema.loader.SchemaLoader;
 
+// MapReduce & Hadoop
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.LongWritable;
-
 import org.apache.hadoop.conf.Configuration;
 
-import org.apache.hadoop.mapreduce.lib.input.FileSplit;
-
-import org.apache.avro.Schema;
+// AVRO
+// import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.generic.GenericRecord;
 
+// Parquet
 import org.apache.parquet.Log;
 
 public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, GenericRecord> {
     private GenericRecordBuilder recordBuilder = null;
+    private org.everit.json.schema.Schema inputSchema;
 
     @Override
     public void setup(Context context) {
-	Schema stationSchema;
+	org.apache.avro.Schema outputSchema;
+
+	// Get gonfiguration
 	Configuration conf = context.getConfiguration();
 	
+	// Create a JSON input schema used as input validator
+	inputSchema = SchemaLoader.load(new JSONObject(conf.get("climate.stations.input.schema")));
+
 	// Create a record builder for output (AVRO) records
-	stationSchema = new Schema.Parser().parse(conf.get("climate.stations.schema"));
-	this.recordBuilder = new GenericRecordBuilder(stationSchema);
+	outputSchema = new org.apache.avro.Schema.Parser().parse(conf.get("climate.stations.output.schema"));
+	this.recordBuilder = new GenericRecordBuilder(outputSchema);
     }
 
     @Override
