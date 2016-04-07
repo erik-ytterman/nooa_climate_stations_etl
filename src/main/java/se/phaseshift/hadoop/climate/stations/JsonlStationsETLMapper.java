@@ -6,11 +6,11 @@ import java.io.IOException;
 import java.io.StringReader;
 
 // JSON parser
-import org.json.JSONObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 // JSON Schema validator
-// import org.everit.json.schema.Schema;
-import org.everit.json.schema.loader.SchemaLoader;
 
 // MapReduce & Hadoop
 import org.apache.hadoop.mapreduce.Mapper;
@@ -20,7 +20,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.conf.Configuration;
 
 // AVRO
-// import org.apache.avro.Schema;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.generic.GenericRecord;
 
@@ -29,34 +29,35 @@ import org.apache.parquet.Log;
 
 public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, GenericRecord> {
     private GenericRecordBuilder recordBuilder = null;
-    private org.everit.json.schema.Schema inputSchema;
+    private ObjectMapper objectMapper = null;
 
     @Override
     public void setup(Context context) {
-	org.apache.avro.Schema outputSchema;
-
 	// Get gonfiguration
 	Configuration conf = context.getConfiguration();
 	
+	// Create an object maper used for Jackson JSON parsing
+	this.objectMapper = new ObjectMapper();
+
 	// Create a JSON input schema used as input validator
-	inputSchema = SchemaLoader.load(new JSONObject(conf.get("climate.stations.input.schema")));
+	// conf.get("climate.stations.input.schema";
 
 	// Create a record builder for output (AVRO) records
-	outputSchema = new org.apache.avro.Schema.Parser().parse(conf.get("climate.stations.output.schema"));
+	Schema outputSchema = new Schema.Parser().parse(conf.get("climate.stations.output.schema"));
 	this.recordBuilder = new GenericRecordBuilder(outputSchema);
     }
 
     @Override
     public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 	FileSplit fileSplit   = (FileSplit) context.getInputSplit();
-	JSONObject jsonObject = new JSONObject(value.toString());
 
-	// Extract data from JSON line instance
-	String stationId        = jsonObject.getString("id");
-	Float  stationLatitude  = new Float(jsonObject.getDouble("latitude"));
-	Float  stationLongitude = new Float(jsonObject.getDouble("longitude"));
-	Float  stationElevation = new Float(jsonObject.getDouble("elevation"));
-	String stationName      = jsonObject.getString("name");
+	// Extract data from JSON line instance	
+	JsonNode jsonNode = this.objectMapper.readTree(value.toString());
+	String stationId        = jsonNode.get("id").asText();
+	Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
+	Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
+	Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
+	String stationName      = jsonNode.get("name").asText();
 	String fileName         = fileSplit.getPath().getName();
 
 	// Configre generic AVRO record output data
