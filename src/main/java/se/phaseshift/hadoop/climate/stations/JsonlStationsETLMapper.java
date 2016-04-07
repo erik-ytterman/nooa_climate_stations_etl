@@ -35,20 +35,28 @@ import org.apache.parquet.Log;
 public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, GenericRecord> {
     private GenericRecordBuilder recordBuilder = null;
     private ObjectMapper objectMapper = null;
+    private JsonSchema inputSchema = null;
 
     @Override
-    public void setup(Context context) {
+	public void setup(Context context) {
 	// Get gonfiguration
 	Configuration conf = context.getConfiguration();
 	
+	// Create an Jackson Object mapper needed for JSON parsing
 	this.objectMapper = new ObjectMapper();
+	
+	try {
+	    // Create a JSON input schema used as input validator
+	    JsonNode schemaNode = this.objectMapper.readTree(conf.get("climate.stations.input.schema"));
+	    this.inputSchema = JsonSchemaFactory.byDefault().getJsonSchema(schemaNode);
 
-	// Create a JSON input schema used as input validator
-	// conf.get("climate.stations.input.schema";
-
-	// Create a record builder for output (AVRO) records
-	Schema outputSchema = new Schema.Parser().parse(conf.get("climate.stations.output.schema"));
-	this.recordBuilder = new GenericRecordBuilder(outputSchema);
+	    // Create a record builder for output (AVRO) records
+	    Schema outputSchema = new Schema.Parser().parse(conf.get("climate.stations.output.schema"));
+	    this.recordBuilder = new GenericRecordBuilder(outputSchema);
+	}
+	catch(Exception e) {
+	    System.err.println(e.toString());
+	}
     }
 
     @Override
