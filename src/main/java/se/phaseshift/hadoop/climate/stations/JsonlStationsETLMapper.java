@@ -19,6 +19,7 @@ import com.github.fge.jsonschema.report.ProcessingReport;
 // MapReduce & Hadoop
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.conf.Configuration;
@@ -38,12 +39,17 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     private GenericRecordBuilder recordBuilder = null;
     private ObjectMapper objectMapper = null;
     private JsonSchema inputSchema = null;
+    private MultipleOutputs mos = null;
 
     @Override
     public void setup(Context context) {
 	// Get configuration
 	Configuration conf = context.getConfiguration();
+	conf.setBoolean("mapred.output.compress", false);
 	
+	// Create multiple outputs 
+	mos = new MultipleOutputs(context);
+
 	// Create an Jackson Object mapper needed for JSON parsing
 	this.objectMapper = new ObjectMapper();
 	
@@ -62,7 +68,7 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     }
 
     @Override
-	public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+    public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 	try {
 	    // Parse JSON line data into JsonNode
 	    JsonNode jsonNode = this.objectMapper.readTree(value.toString());
@@ -70,31 +76,33 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	    // Validate against schema
 	    ProcessingReport validationReport = this.inputSchema.validate(jsonNode);
 	    if (!validationReport.isSuccess()) {
+		mos.write("error", key, value);		
 	    }
+	    else {
+		// Extract data from JSON line instance 	
+		String stationId        = jsonNode.get("id").asText();
+		Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
+		Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
+		Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
+		String stationName      = jsonNode.get("name").asText();
+		
+		// Extract MapReduce meta-data potentially used in KPI calculation
+		FileSplit fileSplit   = (FileSplit) context.getInputSplit();	
+		String fileName         = fileSplit.getPath().getName();
+	    
+		// Configre generic AVRO record output data
+		this.recordBuilder.set("id", stationId);
+		this.recordBuilder.set("latitude" , stationLatitude);
+		this.recordBuilder.set("longitude", stationLongitude);
+		this.recordBuilder.set("elevation", stationElevation);
+		this.recordBuilder.set("name", stationName);
+	    
+		// Generate AVRO record
+		GenericRecord record = this.recordBuilder.build();
 
-	    // Extract data from JSON line instance 	
-	    String stationId        = jsonNode.get("id").asText();
-	    Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
-	    Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
-	    Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
-	    String stationName      = jsonNode.get("name").asText();
-
-	    // Extract MapReduce meta-data potentially used in KPI calculation
-	    FileSplit fileSplit   = (FileSplit) context.getInputSplit();	
-	    String fileName         = fileSplit.getPath().getName();
-	    
-	    // Configre generic AVRO record output data
-	    this.recordBuilder.set("id", stationId);
-	    this.recordBuilder.set("latitude" , stationLatitude);
-	    this.recordBuilder.set("longitude", stationLongitude);
-	    this.recordBuilder.set("elevation", stationElevation);
-	    this.recordBuilder.set("name", stationName);
-	    
-	    // Generate AVRO record
-	    GenericRecord record = this.recordBuilder.build();
-	    
-	    // Dispatch data
-	    context.write(null, record);
+		// Dispatch data		
+		context.write(null, record);
+	    }
 	}
 	catch(Exception e) {
 	    System.err.println(e.toString());
