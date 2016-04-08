@@ -4,6 +4,8 @@ import java.lang.InterruptedException;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 // JSON parser
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,6 +42,21 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     private ObjectMapper objectMapper = null;
     private JsonSchema inputSchema = null;
     private MultipleOutputs<LongWritable, Text> mos = null;
+
+    public static String dumpExceptionInfoToString(Exception e) {
+	StringWriter stringWriter = new StringWriter();
+	PrintWriter printWriter   = new PrintWriter(stringWriter);
+	
+	printWriter.println(e.getMessage());
+	e.printStackTrace(printWriter);
+	printWriter.println();
+	
+	if (e.getCause() != null) {
+	    e.getCause().printStackTrace(printWriter);
+	}
+	
+	return stringWriter.toString();
+    }
 
     @Override
     public void setup(Context context) {
@@ -105,7 +122,8 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	    }
 	}
 	catch(Exception e) {
-	    System.err.println(e.toString());
+	    Text txt = new Text(JsonlStationsETLMapper.dumpExceptionInfoToString(e));
+	    this.mos.write("error", key, txt);		
 	}
     }
 
