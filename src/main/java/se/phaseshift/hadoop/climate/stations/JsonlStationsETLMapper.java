@@ -39,7 +39,7 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     private GenericRecordBuilder recordBuilder = null;
     private ObjectMapper objectMapper = null;
     private JsonSchema inputSchema = null;
-    private MultipleOutputs mos = null;
+    private MultipleOutputs<LongWritable, Text> mos = null;
 
     @Override
     public void setup(Context context) {
@@ -76,7 +76,7 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	    // Validate against schema
 	    ProcessingReport validationReport = this.inputSchema.validate(jsonNode);
 	    if (!validationReport.isSuccess()) {
-		mos.write("error", key, value);		
+		this.mos.write("error", key, value);		
 	    }
 	    else {
 		// Extract data from JSON line instance 	
@@ -110,6 +110,8 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     }
 
     @Override
-    public void cleanup(Context context) {
-    }    
+    protected void cleanup(Context context) throws IOException, InterruptedException {
+	// Close multiple outputs!
+	this.mos.close();
+    }
 }
