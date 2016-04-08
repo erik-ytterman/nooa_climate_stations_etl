@@ -23,6 +23,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.partition.HashPartitioner;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.conf.Configuration;
@@ -31,6 +32,7 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecord;
 
 import org.apache.parquet.avro.AvroParquetOutputFormat;
 import org.apache.parquet.avro.AvroSchemaConverter;
@@ -39,11 +41,11 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 public class JsonlStationsETL extends Configured implements Tool {
 
     public static void main(String[] args)  throws Exception {
-	if(args.length >= 3) {
+	if(args.length >= 5) {
 	    int res = ToolRunner.run(new Configuration(), new JsonlStationsETL(), args);
 	    System.exit(res);
 	} else {
-	    System.out.println("ERROR");
+	    System.err.println("ERROR");
 	    System.exit(0);
 	}
     }
@@ -53,7 +55,9 @@ public class JsonlStationsETL extends Configured implements Tool {
 	// Get paths
  	Path inputPath = new Path(args[0]);
 	Path outputPath = new Path(args[1]);				  
-	Path schemaPath = new Path(args[2]);
+	Path outputSchemaPath = new Path(args[2]);
+	Path inputSchemaPath = new Path(args[3]);
+	Path errorPath = new Path(args[4]);				  
 
 	// Create configuration and filesystem objects
         Configuration conf = this.getConf();
@@ -62,34 +66,48 @@ public class JsonlStationsETL extends Configured implements Tool {
 	// Clean output area, othetwise job will terminate
 	fs.delete(outputPath, true);
 
-	// Read the Avro schema
-        String schemaString = inputStreamToString(fs.open(schemaPath));
+	// Read the output (AVRO) schema
+        String outputSchemaString = inputStreamToString(fs.open(outputSchemaPath));
 
-	// Add schema string to configuration for the mappers if the job
-	conf.set("climate.stations.schema", schemaString);
+	// Add output schema string to configuration for the mappers of the job
+	conf.set("climate.stations.output.schema", outputSchemaString);
+
+	// Read the input (JSON) schema
+	String inputSchemaString = inputStreamToString(fs.open(inputSchemaPath));
+
+	// Add input schema string to configuration for the mappers of the job
+	conf.set("climate.stations.input.schema", inputSchemaString);
 
 	// Create job
 	Job job = Job.getInstance(conf);
 	job.setJarByClass(JsonlStationsETL.class);
 	job.setJobName("Ghcnd_Stations_Jsonl_ETL");
-
+	
+	// Configure input format
 	TextInputFormat.addInputPath(job, inputPath);
 
-	job.setInputFormatClass(TextInputFormat.class);
-	job.setMapperClass(JsonlStationsETLMapper.class);
-	job.setPartitionerClass(HashPartitioner.class);
+	// Configure output format(s)
 
-	Schema stationSchema = new Schema.Parser().parse(schemaString);
-
+	// AVRO/Parquet for data
+	Schema outputSchema = new Schema.Parser().parse(outputSchemaString);
         AvroParquetOutputFormat.setOutputPath(job, outputPath);
-        AvroParquetOutputFormat.setSchema(job, stationSchema);
+        AvroParquetOutputFormat.setSchema(job, outputSchema);
         AvroParquetOutputFormat.setCompression(job, CompressionCodecName.SNAPPY);
         AvroParquetOutputFormat.setCompressOutput(job, true);
         AvroParquetOutputFormat.setBlockSize(job, 500 * 1024 * 1024);	
-	job.setOutputFormatClass(AvroParquetOutputFormat.class);
 
+	// Text for errors
+	TextOutputFormat.setOutputPath(job, outputPath);
+
+	// Configure job
+	job.setInputFormatClass(TextInputFormat.class);
+	job.setMapperClass(JsonlStationsETLMapper.class);
+	job.setPartitionerClass(HashPartitioner.class);
 	job.setNumReduceTasks(0);
 	job.setReducerClass(Reducer.class);
+	job.setOutputFormatClass(AvroParquetOutputFormat.class);
+
+	MultipleOutputs.addNamedOutput(job, "error", TextOutputFormat.class, LongWritable.class, Text.class);
 
 	return job.waitForCompletion(true) ? 0 : 1;
     }
