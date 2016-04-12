@@ -77,48 +77,48 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	    JsonNode jsonNode = this.objectMapper.readTree(value.toString());
 	    
 	    // Validate against schema
-	    ProcessingReport validationReport = this.inputSchema.validate(jsonNode);
-	    if (!validationReport.isSuccess()) {
-		this.mos.write("error", key, value);
-		
-		for(ProcessingMessage m : validationReport) {
-		    this.mos.write("error", key, this.removeLineBreak(m.toString()));
-		}
-	    }
-	    else {
-		// Extract data from JSON line instance 	
-		String stationId        = jsonNode.get("id").asText();
-		Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
-		Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
-		Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
-		String stationName      = jsonNode.get("name").asText();
-		
-		// Extract MapReduce meta-data potentially used in KPI calculation
-		FileSplit fileSplit   = (FileSplit) context.getInputSplit();	
-		String fileName         = fileSplit.getPath().getName();
+	    this.validateJsonSchema(jsonNode);
 	    
-		// Configre generic AVRO record output data
-		this.recordBuilder.set("id", stationId);
-		this.recordBuilder.set("latitude" , stationLatitude);
-		this.recordBuilder.set("longitude", stationLongitude);
-		this.recordBuilder.set("elevation", stationElevation);
-		this.recordBuilder.set("name", stationName);
+	    // Extract data from JSON line instance 	
+	    String stationId        = jsonNode.get("id").asText();
+	    Float  stationLatitude  = new Float(jsonNode.get("latitude").asDouble());
+	    Float  stationLongitude = new Float(jsonNode.get("longitude").asDouble());
+	    Float  stationElevation = new Float(jsonNode.get("elevation").asDouble());
+	    String stationName      = jsonNode.get("name").asText();
 	    
-		// Generate AVRO record
-		GenericRecord record = this.recordBuilder.build();
+	    // Extract MapReduce meta-data potentially used in KPI calculation
+	    FileSplit fileSplit   = (FileSplit) context.getInputSplit();	
+	    String fileName         = fileSplit.getPath().getName();
+	    
+	    // Configre generic AVRO record output data
+	    this.recordBuilder.set("id", stationId);
+	    this.recordBuilder.set("latitude" , stationLatitude);
+	    this.recordBuilder.set("longitude", stationLongitude);
+	    this.recordBuilder.set("elevation", stationElevation);
+	    this.recordBuilder.set("name", stationName);
+	    
+	    // Generate AVRO record
+	    GenericRecord record = this.recordBuilder.build();
 
-		// Dispatch data		
-		context.write(null, record);
-	    }
+	    // Dispatch data		
+	    context.write(null, record);
 	}
 	catch(JsonProcessingException jpe) {
 	    this.mos.write("error", key, value);
+
 	    this.mos.write("error", key, this.removeLineBreak(jpe.getMessage()));
+	}
+	catch(JsonValidationException jve) {
+	    this.mos.write("error", key, value);
+
+	    for(ProcessingMessage pm : jve) {
+		this.mos.write("error", key, this.removeLineBreak(pm.toString()));	
+	    }
 	}
 	catch(Exception e) {
 	    this.mos.write("error", key, this.removeLineBreak(e.getMessage()));
 
-	    for(StackTraceElement ste: e.getStackTrace()) {
+	    for(StackTraceElement ste : e.getStackTrace()) {
 		this.mos.write("error", key, this.removeLineBreak(ste.toString()));		
 	    }
 	}
@@ -130,6 +130,15 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	this.mos.close();
     }
 
+    private boolean validateJsonSchema(JsonNode jsonNode) throws Exception, JsonValidationException {
+	ProcessingReport validationReport = this.inputSchema.validate(jsonNode);
+	if(!validationReport.isSuccess()) { 
+	    throw new JsonValidationException(validationReport); 
+	}
+
+	return true;
+    }
+    
     private String removeLineBreak(String text) {
 	return text.replace("\n", "").replace("\r", "");
     }
