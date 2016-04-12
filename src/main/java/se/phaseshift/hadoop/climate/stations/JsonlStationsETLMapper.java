@@ -17,6 +17,7 @@ import com.github.fge.jsonschema.exceptions.ProcessingException;
 import com.github.fge.jsonschema.main.JsonSchema;
 import com.github.fge.jsonschema.main.JsonSchemaFactory;
 import com.github.fge.jsonschema.report.ProcessingReport;
+import com.github.fge.jsonschema.report.ProcessingMessage;
 
 // MapReduce & Hadoop
 import org.apache.hadoop.mapreduce.Mapper;
@@ -42,21 +43,6 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     private ObjectMapper objectMapper = null;
     private JsonSchema inputSchema = null;
     private MultipleOutputs<LongWritable, Text> mos = null;
-
-    public static String dumpExceptionInfoToString(Exception e) {
-	StringWriter stringWriter = new StringWriter();
-	PrintWriter printWriter   = new PrintWriter(stringWriter);
-	
-	printWriter.println(e.getMessage());
-	e.printStackTrace(printWriter);
-	printWriter.println();
-	
-	if (e.getCause() != null) {
-	    e.getCause().printStackTrace(printWriter);
-	}
-	
-	return stringWriter.toString();
-    }
 
     @Override
     public void setup(Context context) {
@@ -93,7 +79,11 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	    // Validate against schema
 	    ProcessingReport validationReport = this.inputSchema.validate(jsonNode);
 	    if (!validationReport.isSuccess()) {
-		this.mos.write("error", key, value);		
+		this.mos.write("error", key, value);
+		
+		for(ProcessingMessage m : validationReport) {
+		    this.mos.write("error", key, this.removeLineBreak(m.toString()));
+		}
 	    }
 	    else {
 		// Extract data from JSON line instance 	
@@ -121,9 +111,16 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 		context.write(null, record);
 	    }
 	}
+	catch(JsonProcessingException jpe) {
+	    this.mos.write("error", key, value);
+	    this.mos.write("error", key, this.removeLineBreak(jpe.getMessage()));
+	}
 	catch(Exception e) {
-	    Text txt = new Text(JsonlStationsETLMapper.dumpExceptionInfoToString(e));
-	    this.mos.write("error", key, txt);		
+	    this.mos.write("error", key, this.removeLineBreak(e.getMessage()));
+
+	    for(StackTraceElement ste: e.getStackTrace()) {
+		this.mos.write("error", key, this.removeLineBreak(ste.toString()));		
+	    }
 	}
     }
 
@@ -131,5 +128,9 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
     protected void cleanup(Context context) throws IOException, InterruptedException {
 	// Close multiple outputs!
 	this.mos.close();
+    }
+
+    private String removeLineBreak(String text) {
+	return text.replace("\n", "").replace("\r", "");
     }
 }
