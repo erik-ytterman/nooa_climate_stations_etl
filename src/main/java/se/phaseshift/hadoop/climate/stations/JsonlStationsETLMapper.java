@@ -108,7 +108,7 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 
 	    this.mos.write("error", key, this.removeLineBreak(jpe.getMessage()));
 	}
-	catch(JsonValidationException jve) {
+	catch(JsonlStationValidationException jve) {
 	    this.mos.write("error", key, value);
 
 	    for(ProcessingMessage pm : jve) {
@@ -130,10 +130,10 @@ public class JsonlStationsETLMapper extends Mapper<LongWritable, Text, Void, Gen
 	this.mos.close();
     }
 
-    private boolean validateJsonSchema(JsonNode jsonNode) throws Exception, JsonValidationException {
+    private boolean validateJsonSchema(JsonNode jsonNode) throws Exception, JsonlStationValidationException {
 	ProcessingReport validationReport = this.inputSchema.validate(jsonNode);
 	if(!validationReport.isSuccess()) { 
-	    throw new JsonValidationException(validationReport); 
+	    throw new JsonlStationValidationException(validationReport); 
 	}
 
 	return true;
